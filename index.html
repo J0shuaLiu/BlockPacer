@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Pacer</title>
+<meta name="description" content="How many meal blocks and FLEX dollars to spend each week so your CMU dining plan finishes with nothing left to expire.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="masthead-inner">
+    <p class="eyebrow">CMU Dining · <span id="semester-label">Fall 2026</span></p>
+    <h1>Block Pacer</h1>
+    <p class="lede">How many meal blocks and how much FLEX to spend each week so nothing is left on your card when the plan expires on <strong id="expiry-label">Dec 14</strong>.</p>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel card-panel" aria-labelledby="panel-title">
+    <div class="panel-head">
+      <h2 id="panel-title">Your card</h2>
+      <span class="chip chip-example" id="example-chip" hidden>Example numbers</span>
+    </div>
+
+    <form id="form" autocomplete="off">
+      <div class="field">
+        <label for="semester">Semester</label>
+        <select id="semester" name="semester"></select>
+      </div>
+
+      <div class="field">
+        <label for="plan">Dining plan</label>
+        <select id="plan" name="plan"></select>
+        <p class="hint" id="plan-hint"></p>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" id="firstYear" name="firstYear">
+        <span>First-year pricing</span>
+      </label>
+
+      <fieldset class="custom-fields" id="custom-fields" hidden>
+        <legend>Custom plan</legend>
+        <div class="field-row">
+          <div class="field">
+            <label for="customBlocks">Blocks / semester</label>
+            <input type="number" id="customBlocks" name="customBlocks" min="1" step="1" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="customFlex">FLEX / semester</label>
+            <div class="input-prefix"><span>$</span><input type="number" id="customFlex" name="customFlex" min="0" step="1" inputmode="decimal"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="customPrice">Price / semester <span class="opt">(optional, for $ per block)</span></label>
+          <div class="input-prefix"><span>$</span><input type="number" id="customPrice" name="customPrice" min="0" step="1" inputmode="decimal"></div>
+        </div>
+      </fieldset>
+
+      <div class="field-row balances">
+        <div class="field">
+          <label for="blocksLeft">Blocks left</label>
+          <input type="number" id="blocksLeft" name="blocksLeft" min="0" step="1" inputmode="numeric" required>
+        </div>
+        <div class="field">
+          <label for="flexLeft">FLEX left</label>
+          <div class="input-prefix"><span>$</span><input type="number" id="flexLeft" name="flexLeft" min="0" step="0.01" inputmode="decimal" required></div>
+        </div>
+      </div>
+      <p class="hint">Balances are on the GET app or the bottom of any dining receipt.</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="asOf">As of</label>
+          <input type="date" id="asOf" name="asOf" required>
+        </div>
+        <div class="field">
+          <label for="lastDay">Last day on campus</label>
+          <input type="date" id="lastDay" name="lastDay" required>
+        </div>
+      </div>
+      <p class="hint" id="lastday-hint"></p>
+
+      <fieldset class="breaks">
+        <legend>Breaks</legend>
+        <div id="break-fields"></div>
+        <p class="hint">Your plan stays active over breaks, so only mark the days you will actually be away.</p>
+      </fieldset>
+
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="reset">Reset</button>
+      </div>
+      <p class="error" id="form-error" role="alert" hidden></p>
+    </form>
+  </aside>
+
+  <section class="results" aria-live="polite">
+    <article class="card verdict" id="verdict">
+      <p class="eyebrow">This week's target</p>
+      <h2 class="target" id="target-line"></h2>
+      <ul class="pace-list" id="pace-list"></ul>
+    </article>
+
+    <section class="tiles" id="tiles" aria-label="Per-day and per-week targets"></section>
+
+    <article class="card chart-card">
+      <div class="card-head">
+        <div>
+          <h2>Burn-down</h2>
+          <p class="sub" id="chart-sub"></p>
+        </div>
+        <div class="seg" role="group" aria-label="Chart metric">
+          <button type="button" class="seg-btn" data-metric="blocks" id="seg-blocks" aria-pressed="true">Blocks</button>
+          <button type="button" class="seg-btn" data-metric="flex" id="seg-flex" aria-pressed="false">FLEX</button>
+        </div>
+      </div>
+      <div class="chart-wrap" id="chart-wrap">
+        <svg id="chart" viewBox="0 0 640 250" role="img" aria-labelledby="chart-title chart-desc">
+          <title id="chart-title">Remaining balance over the semester</title>
+          <desc id="chart-desc">Lines for the day-one ideal, the target from today, and your current pace.</desc>
+        </svg>
+        <div class="tooltip" id="tooltip" hidden></div>
+      </div>
+      <ul class="legend" aria-hidden="true">
+        <li><span class="sw sw-plan"></span>Target from today</li>
+        <li><span class="sw sw-pace"></span>Your current pace</li>
+        <li><span class="sw sw-ideal"></span>Day-one ideal</li>
+        <li><span class="sw sw-away"></span>Away</li>
+      </ul>
+    </article>
+
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <h2>Week by week</h2>
+          <p class="sub">Weeks run Sunday to Saturday, like the CMU calendar. Targets add up exactly to what you have left.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="weeks" id="weeks">
+          <thead>
+            <tr><th scope="col">Week</th><th scope="col" class="num">Campus days</th><th scope="col" class="num">Blocks</th><th scope="col" class="num">Per day</th><th scope="col" class="num">FLEX</th></tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </article>
+
+    <article class="card" id="planfit" hidden>
+      <div class="card-head">
+        <div>
+          <h2>Still time to switch plans</h2>
+          <p class="sub" id="planfit-sub"></p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="fit" id="fit-table">
+          <thead>
+            <tr><th scope="col">Plan</th><th scope="col" class="num">Blocks</th><th scope="col" class="num">FLEX</th><th scope="col" class="num">Price / sem</th><th scope="col" class="num">Blocks unused</th><th scope="col" class="num">FLEX unused</th><th scope="col">Fit</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="card rules">
+      <h2>Rules that shape the math</h2>
+      <dl>
+        <div><dt>Expiry</dt><dd>Blocks and FLEX expire on the last active day of each semester. Nothing rolls over, not even to spring.</dd></div>
+        <div><dt>Daily cap</dt><dd>At most 4 blocks a day and 2 per meal period. If your required pace is above 4 a day, some blocks cannot be saved.</dd></div>
+        <div><dt>Meal periods</dt><dd>Breakfast 3:30 to 10:29 AM · Lunch 10:30 AM to 4:29 PM · Dinner 4:30 to 8:59 PM · Late night 9:00 PM to 3:29 AM.</dd></div>
+        <div><dt>Changing plans</dt><dd>Fall only, by 5 PM on Sep 18, 2026, through the StarRez dining portal. There is no spring change window.</dd></div>
+        <div><dt>Guest meals</dt><dd>Traditional plans include two guest meals a semester on top of your blocks.</dd></div>
+      </dl>
+    </article>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Numbers come from the <a href="https://www.cmu.edu/dining/your-dining-plan/26-27-fy-meal-plan-agreement.pdf">2026–27 first-year</a> and <a href="https://www.cmu.edu/dining/your-dining-plan/26-27-uc-meal-plan-agreementfinal.pdf">upperclass</a> dining agreements and the <a href="https://www.cmu.edu/hub/calendar/docs/2627-academic-calendar.pdf">2026–27 academic calendar</a>. Your data stays in this browser. Not affiliated with CMU Dining Services.</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
